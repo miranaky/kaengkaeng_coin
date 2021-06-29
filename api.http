@@ -1,4 +1,9 @@
 http://localhost:4000/
-
 ###
 http://localhost:4000/block
+###
+POST http://localhost:4000/block
+
+{
+    "message":"Create A New Block"
+}
