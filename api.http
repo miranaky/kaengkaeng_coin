@@ -7,3 +7,6 @@ POST http://localhost:4000/block
 {
     "message":"Create A New Block"
 }
+
+###
+http://localhost:4000/block/5
