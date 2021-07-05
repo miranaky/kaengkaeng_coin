@@ -29,7 +29,7 @@ func home(rw http.ResponseWriter, r *http.Request) {
 func add(rw http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		templates.ExecuteTemplate(rw, "add", nil)
+		templates.ExecuteTemplate(rw, "add", blockchain.BlockChain().Blocks())
 	case "POST":
 		r.ParseForm()
 		data := r.Form.Get("blockData")

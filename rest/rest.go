@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/miranaky/kaengkaengcoin/blockchain"
+	"github.com/miranaky/kaengkaengcoin/utils"
 )
 
 //
@@ -65,14 +66,12 @@ func documentation(rw http.ResponseWriter, r *http.Request) {
 func blocks(rw http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		// json.NewEncoder(rw).Encode(blockchain.BlockChain().AllBlocks())
-		return
+		json.NewEncoder(rw).Encode(blockchain.BlockChain().Blocks())
 	case "POST":
-		// var addBlockBody addBlockBody
-		// utils.HandleErr(json.NewDecoder(r.Body).Decode(&addBlockBody))
-		// blockchain.BlockChain().AddBlock(addBlockBody.Message)
-		// rw.WriteHeader(http.StatusCreated)
-		return
+		var addBlockBody addBlockBody
+		utils.HandleErr(json.NewDecoder(r.Body).Decode(&addBlockBody))
+		blockchain.BlockChain().AddBlock(addBlockBody.Message)
+		rw.WriteHeader(http.StatusCreated)
 	}
 }
 
