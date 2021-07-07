@@ -12,3 +12,8 @@ POST http://localhost:4000/block
 
 ###
 http://localhost:4000/block/3584bbd097690db115c34ea9b458cddbc8f6425be5fc2540361dba18492a93ce
+
+###
+http://localhost:4000/balance/sungmuk
+###
+http://localhost:4000/balance/sungmuk?total=true

@@ -51,8 +51,8 @@ func (b *blockChain) persist() {
 	db.SaveBlockChain(utils.ToBytes(b))
 }
 
-func (b *blockChain) AddBlock(data string) {
-	block := createBlock(data, b.NewestHash, b.Height+1)
+func (b *blockChain) AddBlock() {
+	block := createBlock(b.NewestHash, b.Height+1)
 	b.NewestHash = block.Hash
 	b.Height = block.Height
 	b.CurrentDifficulty = block.Difficulty
@@ -78,6 +78,37 @@ func (b *blockChain) Blocks() []*Block {
 	return blocks
 }
 
+func (b *blockChain) txOuts() []*TxOut {
+	var txOuts []*TxOut
+	blocks := b.Blocks()
+	for _, block := range blocks {
+		for _, tx := range block.Transaction {
+			txOuts = append(txOuts, tx.TxOuts...)
+		}
+	}
+	return txOuts
+}
+
+func (b *blockChain) TxOutsByAddress(address string) []*TxOut {
+	var ownedTxOuts []*TxOut
+	txOuts := b.txOuts()
+	for _, txOut := range txOuts {
+		if txOut.Onwer == address {
+			ownedTxOuts = append(ownedTxOuts, txOut)
+		}
+	}
+	return ownedTxOuts
+}
+
+func (b *blockChain) BalanceByAddress(address string) int {
+	var amount int
+	txOuts := b.TxOutsByAddress(address)
+	for _, txOut := range txOuts {
+		amount += txOut.Amount
+	}
+	return amount
+}
+
 // GetBlockChain first initialized the blockChain struct by singleton pattern.
 func BlockChain() *blockChain {
 	if b == nil {
@@ -85,7 +116,7 @@ func BlockChain() *blockChain {
 			b = &blockChain{Height: 0}
 			checkpoint := db.Checkpoint()
 			if checkpoint == nil {
-				b.AddBlock("Genesis Block")
+				b.AddBlock()
 			} else {
 				b.restore(checkpoint)
 			}
