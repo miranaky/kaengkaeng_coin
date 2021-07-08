@@ -6,14 +6,17 @@ http://localhost:4000/status
 ###
 POST http://localhost:4000/block
 
-{
-    "message":"Mine me !!"
-}
-
-###
-http://localhost:4000/block/3584bbd097690db115c34ea9b458cddbc8f6425be5fc2540361dba18492a93ce
-
 ###
 http://localhost:4000/balance/sungmuk
 ###
 http://localhost:4000/balance/sungmuk?total=true
+
+### 
+POST http://localhost:4000/transactions
+
+{
+    "to":"sujeong",
+    "amount":80
+}
+###
+http://localhost:4000/mempool
