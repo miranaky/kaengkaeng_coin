@@ -29,7 +29,7 @@ func home(rw http.ResponseWriter, r *http.Request) {
 func add(rw http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		templates.ExecuteTemplate(rw, "add", blockchain.BlockChain().Blocks())
+		templates.ExecuteTemplate(rw, "add", blockchain.Blocks(blockchain.BlockChain()))
 	case "POST":
 		blockchain.BlockChain().AddBlock()
 		http.Redirect(rw, r, "/", http.StatusPermanentRedirect)
