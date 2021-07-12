@@ -1,11 +1,9 @@
 package main
 
 import (
-	"github.com/miranaky/kaengkaengcoin/cli"
-	"github.com/miranaky/kaengkaengcoin/db"
+	"github.com/miranaky/kaengkaengcoin/wallet"
 )
 
 func main() {
-	defer db.Close()
-	cli.Start()
+	wallet.Wallet()
 }
