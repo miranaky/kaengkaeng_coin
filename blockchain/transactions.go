@@ -13,25 +13,21 @@ const (
 )
 
 type Tx struct {
-	Id        string   `json:"id"`
+	ID        string   `json:"id"`
 	TimeStamp int      `json:"timeStamp"`
 	TxIns     []*TxIn  `json:"txIns"`
 	TxOuts    []*TxOut `json:"txOuts"`
 }
 
-func (t *Tx) getId() {
-	t.Id = utils.Hash(t)
-}
-
 type TxIn struct {
-	TxID  string `json:"txID"`
-	Index int    `json:"index"`
-	Onwer string `json:"onwer"`
+	TxID      string `json:"txID"`
+	Index     int    `json:"index"`
+	Signature string `json:"signature"`
 }
 
 type TxOut struct {
-	Onwer  string `json:"onwer"`
-	Amount int    `json:"amount"`
+	Address string `json:"address"`
+	Amount  int    `json:"amount"`
 }
 
 type UTxOut struct {
@@ -46,13 +42,32 @@ type mempool struct {
 
 var Mempool *mempool = &mempool{}
 
-func (m *mempool) AddTx(to string, amount int) error {
-	tx, err := makeTx(wallet.Wallet().Address, to, amount)
-	if err != nil {
-		return err
+//getId hash all transaction information (Timestamp,TxIns,TxOuts). And it will signed by owner.
+func (t *Tx) getId() {
+	t.ID = utils.Hash(t)
+}
+
+func (t *Tx) sign() {
+	for _, txIn := range t.TxIns {
+		txIn.Signature = wallet.Sign(t.ID, wallet.Wallet())
 	}
-	m.Txs = append(m.Txs, tx)
-	return nil
+}
+
+func validate(tx *Tx) bool {
+	valid := true
+	for _, txIn := range tx.TxIns {
+		prevTx := FindTx(BlockChain(), txIn.TxID)
+		if prevTx == nil {
+			valid = false
+			break
+		}
+		address := prevTx.TxOuts[txIn.Index].Address
+		valid = wallet.Verify(txIn.Signature, tx.ID, address)
+		if !valid {
+			break
+		}
+	}
+	return valid
 }
 
 func (m *mempool) TxToConfirm() []*Tx {
@@ -85,7 +100,7 @@ func makeCoinbaseTx(address string) *Tx {
 		{address, minerReward},
 	}
 	tx := Tx{
-		Id:        "",
+		ID:        "",
 		TimeStamp: int(time.Now().Unix()),
 		TxIns:     txIns,
 		TxOuts:    txOuts,
@@ -94,9 +109,12 @@ func makeCoinbaseTx(address string) *Tx {
 	return &tx
 }
 
+var ErrorNoMoney = errors.New("Not Enough Money!")
+var ErrorNotValid = errors.New("Tx Invalid!")
+
 func makeTx(from, to string, amount int) (*Tx, error) {
 	if BalanceByAddress(from, BlockChain()) < amount {
-		return nil, errors.New("Not Enough Money!")
+		return nil, ErrorNoMoney
 	}
 	var txIns []*TxIn
 	var txOuts []*TxOut
@@ -117,11 +135,25 @@ func makeTx(from, to string, amount int) (*Tx, error) {
 	txOut := &TxOut{to, amount}
 	txOuts = append(txOuts, txOut)
 	tx := &Tx{
-		Id:        "",
+		ID:        "",
 		TimeStamp: int(time.Now().Unix()),
 		TxIns:     txIns,
 		TxOuts:    txOuts,
 	}
 	tx.getId()
+	tx.sign()
+	valid := validate(tx)
+	if !valid {
+		return nil, ErrorNotValid
+	}
 	return tx, nil
+}
+
+func (m *mempool) AddTx(to string, amount int) error {
+	tx, err := makeTx(wallet.Wallet().Address, to, amount)
+	if err != nil {
+		return err
+	}
+	m.Txs = append(m.Txs, tx)
+	return nil
 }

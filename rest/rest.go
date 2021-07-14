@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/miranaky/kaengkaengcoin/blockchain"
 	"github.com/miranaky/kaengkaengcoin/utils"
+	"github.com/miranaky/kaengkaengcoin/wallet"
 )
 
 //
@@ -26,6 +27,10 @@ type urlDiscription struct {
 type balanceResponse struct {
 	Address string `json:"address"`
 	Amount  int    `json:"amount"`
+}
+
+type myWalletResponse struct {
+	Address string `json:"address"`
 }
 
 type addTxPayload struct {
@@ -141,6 +146,12 @@ func transactions(rw http.ResponseWriter, r *http.Request) {
 	rw.WriteHeader(http.StatusCreated)
 }
 
+func myWallet(rw http.ResponseWriter, r *http.Request) {
+	address := wallet.Wallet().Address
+	json.NewEncoder(rw).Encode(myWalletResponse{Address: address})
+
+}
+
 func Start(aPort int) {
 	port = fmt.Sprintf(":%d", aPort)
 	router := mux.NewRouter()
@@ -149,8 +160,9 @@ func Start(aPort int) {
 	router.HandleFunc("/status", status)
 	router.HandleFunc("/block", blocks).Methods("GET", "POST")
 	router.HandleFunc("/block/{hash:[a-f0-9]+}", block).Methods("GET")
-	router.HandleFunc("/balance/{address}", balance)
-	router.HandleFunc("/mempool", mempool)
+	router.HandleFunc("/balance/{address}", balance).Methods("GET")
+	router.HandleFunc("/mempool", mempool).Methods("GET")
+	router.HandleFunc("/wallet", myWallet).Methods("GET")
 	router.HandleFunc("/transactions", transactions).Methods("POST")
 	fmt.Printf("Listening REST API on http://localhost%s\n", port)
 	log.Fatal(http.ListenAndServe(port, router))

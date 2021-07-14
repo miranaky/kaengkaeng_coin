@@ -54,6 +54,23 @@ func Blocks(b *blockChain) []*Block {
 	return blocks
 }
 
+func Txs(b *blockChain) []*Tx {
+	var txs []*Tx
+	for _, block := range Blocks(b) {
+		txs = append(txs, block.Transactions...)
+	}
+	return txs
+}
+
+func FindTx(b *blockChain, targetID string) *Tx {
+	for _, tx := range Txs(b) {
+		if tx.ID == targetID {
+			return tx
+		}
+	}
+	return nil
+}
+
 func recalculateDifficulty(b *blockChain) int {
 	allBlocks := Blocks(b)
 	newestBlock := allBlocks[0]
@@ -86,14 +103,17 @@ func UTxOutsByAddress(address string, b *blockChain) []*UTxOut {
 	for _, block := range Blocks(b) {
 		for _, tx := range block.Transactions {
 			for _, input := range tx.TxIns {
-				if input.Onwer == address {
+				if input.Signature == "COINBASE" {
+					break
+				}
+				if FindTx(b, input.TxID).TxOuts[input.Index].Address == address {
 					creatorTxs[input.TxID] = true
 				}
 			}
 			for index, output := range tx.TxOuts {
-				if output.Onwer == address {
-					if _, ok := creatorTxs[tx.Id]; !ok {
-						uTxOut := &UTxOut{tx.Id, index, output.Amount}
+				if output.Address == address {
+					if _, ok := creatorTxs[tx.ID]; !ok {
+						uTxOut := &UTxOut{tx.ID, index, output.Amount}
 						if !isOnMempool(uTxOut) {
 							uTxOuts = append(uTxOuts, uTxOut)
 						}

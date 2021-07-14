@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/miranaky/kaengkaengcoin/wallet"
+	"github.com/miranaky/kaengkaengcoin/cli"
 )
 
 func main() {
-	wallet.Wallet()
+	cli.Start()
 }
