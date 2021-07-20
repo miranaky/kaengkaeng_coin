@@ -1,6 +1,8 @@
 package blockchain
 
 import (
+	"encoding/json"
+	"net/http"
 	"sync"
 
 	"github.com/miranaky/kaengkaengcoin/db"
@@ -18,6 +20,7 @@ type blockChain struct {
 	NewestHash        string `json:"newestHash"`
 	Height            int    `json:"height"`
 	CurrentDifficulty int    `json:"currentDifficulty"`
+	m                 sync.Mutex
 }
 
 var b *blockChain
@@ -27,12 +30,13 @@ func (b *blockChain) restore(data []byte) {
 	utils.FromBytes(b, data)
 }
 
-func (b *blockChain) AddBlock() {
+func (b *blockChain) AddBlock() *Block {
 	block := createBlock(b.NewestHash, b.Height+1, getDifficulty(b))
 	b.NewestHash = block.Hash
 	b.Height = block.Height
 	b.CurrentDifficulty = block.Difficulty
 	persistBlockchain(b)
+	return block
 }
 
 func persistBlockchain(b *blockChain) {
@@ -40,6 +44,8 @@ func persistBlockchain(b *blockChain) {
 }
 
 func Blocks(b *blockChain) []*Block {
+	b.m.Lock()
+	defer b.m.Unlock()
 	var blocks []*Block
 	hashCursor := b.NewestHash
 	for {
@@ -146,4 +152,45 @@ func BlockChain() *blockChain {
 		}
 	})
 	return b
+}
+
+func Status(b *blockChain, rw http.ResponseWriter) {
+	b.m.Lock()
+	defer b.m.Unlock()
+	utils.HandleErr(json.NewEncoder(rw).Encode(b))
+}
+
+func (b *blockChain) Replace(newBlocks []*Block) {
+	b.m.Lock()
+	defer b.m.Unlock()
+	b.CurrentDifficulty = newBlocks[0].Difficulty
+	b.Height = len(newBlocks)
+	b.NewestHash = newBlocks[0].Hash
+	persistBlockchain(b)
+	db.EmptyBlocks()
+	for _, block := range newBlocks {
+		persistBlock(block)
+	}
+}
+
+func (b *blockChain) AddPeerBlock(newBlock *Block) {
+	b.m.Lock()
+	m.m.Lock()
+	defer b.m.Unlock()
+	defer m.m.Unlock()
+
+	b.Height += 1
+	b.NewestHash = newBlock.Hash
+	b.CurrentDifficulty = newBlock.Difficulty
+
+	persistBlockchain(b)
+	persistBlock(newBlock)
+
+	// clear the mempool
+	for _, tx := range newBlock.Transactions {
+		_, ok := m.Txs[tx.ID]
+		if ok {
+			delete(m.Txs, tx.ID)
+		}
+	}
 }

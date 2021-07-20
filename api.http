@@ -1,18 +1,14 @@
 http://localhost:4000/
 ###
-http://localhost:4000/block
+http://localhost:3000/block
 ###
-http://localhost:4000/status
+http://localhost:3000/status
 ###
 POST http://localhost:4000/block
 
 ###
-http://localhost:4000/balance/sungmuk
-###
-http://localhost:4000/balance/sungmuk?total=true
+http://localhost:4000/balance/de598e344686513833d650e9ec398b119c2d5503f37dd375560c84637b5de7a41d9ec303c341da51e2d47d13b85d6e053e80315641b5d2cdd6e665ccfd0a2a7c
 
-###
-http://localhost:4000/balance/sujeong?total=true
 ###
 http://localhost:4000/balance/sujeong
 
@@ -24,4 +20,17 @@ POST http://localhost:4000/transactions
     "amount":10
 }
 ###
-http://localhost:4000/mempool
+http://localhost:5000/mempool
+
+###
+http://localhost:3000/wallet
+
+###
+POST http://localhost:2000/peer
+
+{
+    "address":"127.0.0.1",
+    "port":"5000"
+}
+###
+http://localhost:5000/peer

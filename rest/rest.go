@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/miranaky/kaengkaengcoin/blockchain"
+	"github.com/miranaky/kaengkaengcoin/p2p"
 	"github.com/miranaky/kaengkaengcoin/utils"
 	"github.com/miranaky/kaengkaengcoin/wallet"
 )
@@ -40,6 +41,10 @@ type addTxPayload struct {
 
 type errorResponse struct {
 	ErrorMessage string `json:"errorMessage"`
+}
+
+type addPeerPayload struct {
+	Address, Port string
 }
 
 func (u url) MarshalText() ([]byte, error) {
@@ -80,6 +85,16 @@ func documentation(rw http.ResponseWriter, r *http.Request) {
 			Method:      "GET",
 			Discription: "See All Balance by Address",
 		},
+		{
+			URL:         url("/ws"),
+			Method:      "GET",
+			Discription: "Upgrade to WebSockets",
+		},
+		{
+			URL:         url("/peer"),
+			Method:      "GET",
+			Discription: "connect with upgrade websocket",
+		},
 	}
 	json.NewEncoder(rw).Encode(data)
 }
@@ -89,8 +104,9 @@ func blocks(rw http.ResponseWriter, r *http.Request) {
 	case "GET":
 		json.NewEncoder(rw).Encode(blockchain.Blocks(blockchain.BlockChain()))
 	case "POST":
-		blockchain.BlockChain().AddBlock()
+		newBlock := blockchain.BlockChain().AddBlock()
 		rw.WriteHeader(http.StatusCreated)
+		p2p.BroadcastNewBlock(newBlock)
 	}
 }
 
@@ -113,9 +129,15 @@ func jsonContentTypeMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(rw, r)
 	})
 }
+func loggerMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.URL)
+		next.ServeHTTP(rw, r)
+	})
+}
 
 func status(rw http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(rw).Encode(blockchain.BlockChain())
+	blockchain.Status(blockchain.BlockChain(), rw)
 }
 
 func balance(rw http.ResponseWriter, r *http.Request) {
@@ -133,17 +155,19 @@ func balance(rw http.ResponseWriter, r *http.Request) {
 }
 
 func mempool(rw http.ResponseWriter, r *http.Request) {
-	utils.HandleErr(json.NewEncoder(rw).Encode(blockchain.Mempool))
+	// utils.HandleErr(json.NewEncoder(rw).Encode(blockchain.Mempool().Txs))
+	blockchain.MempoolStatus(blockchain.Mempool(), rw)
 }
 
 func transactions(rw http.ResponseWriter, r *http.Request) {
 	var payload addTxPayload
 	utils.HandleErr(json.NewDecoder(r.Body).Decode(&payload))
-	err := blockchain.Mempool.AddTx(payload.To, payload.Amount)
+	tx, err := blockchain.Mempool().AddTx(payload.To, payload.Amount)
 	if err != nil {
 		json.NewEncoder(rw).Encode(errorResponse{"not enough fund"})
 	}
 	rw.WriteHeader(http.StatusCreated)
+	p2p.BroadcastNewTx(tx)
 }
 
 func myWallet(rw http.ResponseWriter, r *http.Request) {
@@ -152,10 +176,23 @@ func myWallet(rw http.ResponseWriter, r *http.Request) {
 
 }
 
+func peers(rw http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		var payload addPeerPayload
+		json.NewDecoder(r.Body).Decode(&payload)
+		p2p.AddPeer(payload.Address, payload.Port, port[1:], true)
+		rw.WriteHeader(http.StatusOK)
+	case "GET":
+		json.NewEncoder(rw).Encode(p2p.AllPeers(&p2p.Peers))
+	}
+
+}
+
 func Start(aPort int) {
 	port = fmt.Sprintf(":%d", aPort)
 	router := mux.NewRouter()
-	router.Use(jsonContentTypeMiddleware)
+	router.Use(jsonContentTypeMiddleware, loggerMiddleware)
 	router.HandleFunc("/", documentation).Methods("GET")
 	router.HandleFunc("/status", status)
 	router.HandleFunc("/block", blocks).Methods("GET", "POST")
@@ -164,6 +201,8 @@ func Start(aPort int) {
 	router.HandleFunc("/mempool", mempool).Methods("GET")
 	router.HandleFunc("/wallet", myWallet).Methods("GET")
 	router.HandleFunc("/transactions", transactions).Methods("POST")
+	router.HandleFunc("/ws", p2p.Upgrade).Methods("GET")
+	router.HandleFunc("/peer", peers).Methods("GET", "POST")
 	fmt.Printf("Listening REST API on http://localhost%s\n", port)
 	log.Fatal(http.ListenAndServe(port, router))
 }

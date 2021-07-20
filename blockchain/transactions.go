@@ -1,7 +1,10 @@
 package blockchain
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"sync"
 	"time"
 
 	"github.com/miranaky/kaengkaengcoin/utils"
@@ -11,6 +14,23 @@ import (
 const (
 	minerReward int = 50
 )
+
+type mempool struct {
+	Txs map[string]*Tx
+	m   sync.Mutex
+}
+
+var m *mempool
+var memOnce sync.Once
+
+func Mempool() *mempool {
+	memOnce.Do(func() {
+		m = &mempool{
+			Txs: make(map[string]*Tx),
+		}
+	})
+	return m
+}
 
 type Tx struct {
 	ID        string   `json:"id"`
@@ -35,12 +55,6 @@ type UTxOut struct {
 	Index  int    `json:"index"`
 	Amount int    `json:"amount"`
 }
-
-type mempool struct {
-	Txs []*Tx
-}
-
-var Mempool *mempool = &mempool{}
 
 //getId hash all transaction information (Timestamp,TxIns,TxOuts). And it will signed by owner.
 func (t *Tx) getId() {
@@ -70,18 +84,10 @@ func validate(tx *Tx) bool {
 	return valid
 }
 
-func (m *mempool) TxToConfirm() []*Tx {
-	coinbase := makeCoinbaseTx(wallet.Wallet().Address)
-	txs := m.Txs
-	txs = append(txs, coinbase)
-	m.Txs = nil
-	return txs
-}
-
 func isOnMempool(uTxOut *UTxOut) bool {
 	exists := false
 Outer:
-	for _, tx := range Mempool.Txs {
+	for _, tx := range Mempool().Txs {
 		for _, input := range tx.TxIns {
 			if input.TxID == uTxOut.TxID && input.Index == uTxOut.Index {
 				exists = true
@@ -149,11 +155,34 @@ func makeTx(from, to string, amount int) (*Tx, error) {
 	return tx, nil
 }
 
-func (m *mempool) AddTx(to string, amount int) error {
+func (m *mempool) AddTx(to string, amount int) (*Tx, error) {
 	tx, err := makeTx(wallet.Wallet().Address, to, amount)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	m.Txs = append(m.Txs, tx)
-	return nil
+	m.Txs[tx.ID] = tx
+	return tx, nil
+}
+
+func (m *mempool) TxToConfirm() []*Tx {
+	coinbase := makeCoinbaseTx(wallet.Wallet().Address)
+	var txs []*Tx
+	for _, tx := range m.Txs {
+		txs = append(txs, tx)
+	}
+	txs = append(txs, coinbase)
+	m.Txs = make(map[string]*Tx) //reset mempool
+	return txs
+}
+
+func (m *mempool) AddPeerTx(tx *Tx) {
+	m.m.Lock()
+	defer m.m.Unlock()
+	m.Txs[tx.ID] = tx
+}
+
+func MempoolStatus(m *mempool, rw http.ResponseWriter) {
+	m.m.Lock()
+	defer m.m.Unlock()
+	utils.HandleErr(json.NewEncoder(rw).Encode(m.Txs))
 }
